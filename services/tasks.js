@@ -47,7 +47,7 @@ async function getDashboardToday() {
 
 async function getCollectionToday() {
   const collection = await client.query(
-  `SELECT task.title, task.due_date, tasklist.list
+  `SELECT task.task_id, task.title, task.done, task.due_date, tasklist.list
    FROM (SELECT tasklist.tasklist_id, tasklist.title AS "list" FROM tasklist group by tasklist_id) as tasklist
    RIGHT JOIN task
    ON tasklist.tasklist_id = task.list_id
