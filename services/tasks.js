@@ -3,10 +3,11 @@ const client = require("../db");
 function getAllTasks() {
   return client.query("select * from task").then((data) => data.rows);
 }
-function getTasksByList(id) {
-  return client
-    .query(`select * from task where list_id=$1`, [id])
-    .then((data) => data.rows);
+
+async function getTasksByList(id, params) {
+  const tasksByList = await client.query(`select * from task where list_id=$1 AND done=false OR (list_id=$1 AND done=$2)`, [id, !!params]);
+
+  return tasksByList.rows;
 }
 
 async function getTaskById(id) {
