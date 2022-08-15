@@ -1,0 +1,13 @@
+create table taskList (
+  taskList_id serial PRIMARY KEY,
+  title varchar not null
+);
+create table task (
+  task_id serial PRIMARY KEY,
+  title varchar not null,
+  done boolean not null,
+  due_date TIMESTAMP not null,
+  list_id integer not null,
+FOREIGN KEY (list_id) REFERENCES taskList (taskList_id)
+  ON DELETE CASCADE
+);
