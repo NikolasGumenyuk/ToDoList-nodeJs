@@ -48,14 +48,16 @@ async function getDashboardToday() {
 
 async function getCollectionToday() {
   const collection = await client.query(
-  `SELECT task.task_id, task.title, task.done, task.due_date, tasklist.list
-   FROM (SELECT tasklist.tasklist_id, tasklist.title AS "list" FROM tasklist group by tasklist_id) as tasklist
-   RIGHT JOIN task
+  `SELECT task.task_id, task.title, task.done, task.due_date, tasklist.tasklist_id, tasklist.title as "listTitle"
+   FROM tasklist
+   JOIN task
    ON tasklist.tasklist_id = task.list_id
    where task.due_date BETWEEN CURRENT_DATE AND CURRENT_TIMESTAMP`
-   );
+   )
 
-  return collection.rows;
+  const tasksLists = collection.rows.map(({ tasklist_id: id, listTitle: title, ...task}) => ({ ...task, list:{ title, id}}))
+
+  return tasksLists
 }
 
 async function addNewTask(task) {
