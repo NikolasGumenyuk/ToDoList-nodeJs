@@ -1,39 +1,45 @@
-const client = require("../db");
+const knex = require("../db");
+const { getToday } = require("../helpers");
 
 function getAllTasks() {
-  return client.query("select * from task").then((data) => data.rows);
+  return knex.select().table("task");
 }
 
 async function getTasksByList(id, params) {
-  const tasksByList = await client.query(`select * from task where list_id=$1 AND done=false OR (list_id=$1 AND done=$2)`, [id, !!params]);
+  const tasksByList = await client.query(
+    `select * from task where list_id=$1 AND done=false OR (list_id=$1 AND done=$2)`,
+    [id, !!params]
+  );
 
   return tasksByList.rows;
 }
 
 async function getTaskById(id) {
-  const correctTask = await client.query(
-    `select * from task where task_id=$1`,
-    [id]
-  );
+  const correctTask = await knex.select().from("task").where("task_id", id);
 
-  return correctTask.rows[0];
-}
+  return correctTask;
+} 
 
 async function getDashboardToday() {
-  const todayTask = await (
-    await client.query(
-      `SELECT COUNT(due_date) from task where due_date BETWEEN CURRENT_DATE AND CURRENT_TIMESTAMP`
-    )
-  ).rows;
+  const [todayDay, todayMonth, todayYear] = getToday();
+  const dayFrom = new Date([todayYear, todayMonth, todayDay].join('-')).toJSON();
+  const dayTo = new Date([todayYear, todayMonth, todayDay + 1].join('-')).toJSON();
 
-  const todayTaskList = await (
-    await client.query(
-      `SELECT tasklist.tasklist_id, tasklist.title, task.undone
-      FROM (SELECT task.list_id, COUNT(*) AS "undone" FROM task WHERE done=false group by list_id) as task
-      RIGHT JOIN tasklist
-      ON tasklist.tasklist_id = task.list_id`
-    )
-  ).rows;
+  const todayTask = await knex("task")
+    .count("due_date")
+    .whereBetween("due_date", [dayFrom, dayTo]);
+
+  const todayTaskList = await knex
+    .select('tasklist.*')
+    .from(function() {
+      this.select('list_id').count('list_id as undone')
+        .from('task')
+        .groupBy('list_id')
+        .as('task')
+    })
+    .rightJoin("tasklist", function() {
+      this.on('tasklist.tasklist_id', '=', 'task.list_id')
+    }).groupBy('undone');
 
   const [todayTaskRes, lists] = await Promise.all([
     todayTask[0],
@@ -47,37 +53,52 @@ async function getDashboardToday() {
 }
 
 async function getCollectionToday() {
-  const collection = await client.query(
-  `SELECT task.task_id, task.title, task.done, task.due_date, tasklist.tasklist_id, tasklist.title as "listTitle"
-   FROM tasklist
-   JOIN task
-   ON tasklist.tasklist_id = task.list_id
-   where task.due_date BETWEEN CURRENT_DATE AND CURRENT_TIMESTAMP`
-   )
+  // const collection = await client.query(
+  //   `SELECT task.task_id, task.title, task.done, task.due_date, tasklist.tasklist_id, tasklist.title as "listTitle"
+  //  FROM tasklist
+  //  JOIN task
+  //  ON tasklist.tasklist_id = task.list_id
+  //  where task.due_date BETWEEN CURRENT_DATE AND CURRENT_TIMESTAMP`
+  // );
+  const [todayDay, todayMonth, todayYear] = getToday();
+  const dayFrom = new Date([todayYear, todayMonth, todayDay].join('-')).toJSON();
+  const dayTo = new Date([todayYear, todayMonth, todayDay + 1].join('-')).toJSON();
 
-  const tasksLists = collection.rows.map(({ tasklist_id: id, listTitle: title, ...task}) => ({ ...task, list:{ title, id}}))
+  const collection = await knex.select('task.task_id', 'task.title', 'task.done', 'task.due_date', 'tasklist.tasklist_id','tasklist.title as listTitle')
+                                .from('tasklist').rightJoin('task', "tasklist.tasklist_id", "task.list_id").whereBetween("task.due_date", [dayFrom, dayTo]);
 
-  return tasksLists
-}
-
-async function addNewTask(task) {
-  const newTask = await client.query(
-    `insert into task (title, done, due_date, list_id) values ($1, $3, CURRENT_TIMESTAMP, $2)  RETURNING *`,
-    [task.title, task.list_id, task.done]
+  const tasksLists = collection.map(
+    ({ tasklist_id: id, listTitle: title, ...task }) => ({
+      ...task,
+      list: { title, id },
+    })
   );
 
-  return newTask.rows;
+  return tasksLists;
+}
+
+function addNewTask(task) {
+  const newTask = knex
+    .insert({
+      title: task.title,
+      done: task.done,
+      due_date: knex.fn.now(),
+      list_id: task.list_id,
+    })
+    .into("task")
+    .returning("*");
+
+  return newTask;
 }
 
 function deleteTaskById(id) {
-  return client.query(`DELETE FROM task WHERE task_id='$1'`, [id]);
+  return knex("task").where("task_id", id).del();
 }
 
 async function updateTaskById(id, body) {
-  const updatedTask = await client.query(
-    `UPDATE task SET title = $1, done = $2, due_date = CURRENT_TIMESTAMP WHERE task_id=$3 RETURNING *`,
-    [body.title, body.done, id]
-  );
+  const updatedTask = await knex("task")
+    .where("task_id", id)
+    .update({ title: body.title, done: body.done }, "*");
 
   return updatedTask.rows;
 }
