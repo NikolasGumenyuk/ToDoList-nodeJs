@@ -6,11 +6,12 @@ function getAllTasks() {
 }
 
 async function getTasksByList(id, params) {
-  if (params === undefined || params === "false") {
-    return knex("task").where("list_id", id).andWhere("done", false);
-  } else {
-    return knex("task").where("list_id", id);
+  const reqToBb = knex("task").where("list_id", id)
+
+  if (!!params !== true) {
+    return reqToBb.where("done", false);
   }
+  return reqToBb
 }
 
 async function getTaskById(id) {
@@ -29,19 +30,15 @@ async function getDashboardToday() {
   ).toJSON();
 
   const todayTask = await knex("task")
-    .count("due_date")
-    .whereBetween("due_date", [dayFrom, dayTo]);
+  .select(knex.raw('COUNT(due_date)::INT'))
+  .whereBetween("due_date", [dayFrom, dayTo]);
+  
+    
 
-  const todayTaskList = await knex
-    .select("tasklist.*")
-    .from(function () {
-      this.select("list_id")
-        .count("list_id as undone").where("done", true)
-        .from("task")
-        .groupBy("list_id")
-        .as("task");
-    })
-    .rightJoin("tasklist", "tasklist.tasklist_id", "task.list_id");
+  const todayTaskList = await knex("task")
+    .select("tasklist.tasklist_id", "tasklist.title", knex.raw("COUNT(task.done=false)::INT AS undone")).rightJoin("tasklist", function () {
+    this.on("task.list_id", "=", "tasklist.tasklist_id")
+  }).groupBy("tasklist.tasklist_id");
 
   const [todayTaskRes, lists] = await Promise.all([
     todayTask[0],
