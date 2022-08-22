@@ -1,21 +1,26 @@
-const knex = require("../db");
+const sequelize = require("../db");
+const { Op } = require("sequelize");
 const { getToday } = require("../helpers");
+const tasks = require("../models/task");
+const tasklist = require("../models/tasklist");
 
 function getAllTasks() {
-  return knex.select().table("task");
+  return tasks.findAll({ raw: true });
 }
 
 async function getTasksByList(id, params) {
-  const reqToBb = knex("task").where("list_id", id)
+  const reqToBb = knex("task").where("list_id", id);
 
   if (!!params !== true) {
     return reqToBb.where("done", false);
   }
-  return reqToBb
+  return reqToBb;
 }
 
 async function getTaskById(id) {
-  const correctTask = await knex.select().from("task").where("task_id", id);
+  const correctTask = tasks.findOne({
+    where: { task_id: id },
+  });
 
   return correctTask;
 }
@@ -30,21 +35,25 @@ async function getDashboardToday() {
   ).toJSON();
 
   const todayTask = await knex("task")
-  .select(knex.raw('COUNT(due_date)::INT'))
-  .whereBetween("due_date", [dayFrom, dayTo]);
-  
-    
+    .select(knex.raw("COUNT(due_date)::INT"))
+    .whereBetween("due_date", [dayFrom, dayTo]);
 
   const todayTaskList = await knex("task")
-    .select("tasklist.tasklist_id", "tasklist.title", knex.raw("COUNT(task.done=false)::INT AS undone")).rightJoin("tasklist", function () {
-    this.on("task.list_id", "=", "tasklist.tasklist_id")
-  }).groupBy("tasklist.tasklist_id");
+    .select(
+      "tasklist.tasklist_id",
+      "tasklist.title",
+      knex.raw("COUNT(task.done=false)::INT AS undone")
+    )
+    .rightJoin("tasklist", function () {
+      this.on("task.list_id", "=", "tasklist.tasklist_id");
+    })
+    .groupBy("tasklist.tasklist_id");
 
   const [todayTaskRes, lists] = await Promise.all([
     todayTask[0],
     todayTaskList,
   ]);
-  
+
   return {
     ...todayTaskRes,
     lists,
@@ -60,53 +69,40 @@ async function getCollectionToday() {
     [todayYear, todayMonth, todayDay + 1].join("-")
   ).toJSON();
 
-  const collection = await knex
-    .select(
-      "task.task_id",
-      "task.title",
-      "task.done",
-      "task.due_date",
-      "tasklist.tasklist_id",
-      "tasklist.title as listTitle"
-    )
-    .from("tasklist")
-    .rightJoin("task", "tasklist.tasklist_id", "task.list_id")
-    .whereBetween("task.due_date", [dayFrom, dayTo]);
+  tasks.belongsTo(tasklist, { foreignKey: "list_id" });
 
-  const tasksLists = collection.map(
-    ({ tasklist_id: id, listTitle: title, ...task }) => ({
-      ...task,
-      list: { title, id },
-    })
-  );
+  const collection = await tasks.findAll({
+    include: tasklist,
+    where: { due_date: { [Op.between]: [dayFrom, dayTo] } },
+  });
 
-  return tasksLists;
+  return collection;
 }
 
 function addNewTask(task) {
-  const newTask = knex
-    .insert({
-      title: task.title,
-      done: task.done,
-      due_date: knex.fn.now(),
-      list_id: task.list_id,
-    })
-    .into("task")
-    .returning("*");
-
+  const newTask = tasks.create({
+    title: task.title,
+    done: task.done,
+    due_date: sequelize.fn("NOW"),
+    list_id: task.list_id,
+  });
   return newTask;
 }
 
 function deleteTaskById(id) {
-  return knex("task").where("task_id", id).del();
+  return tasks.destroy({ where: { task_id: id } });
 }
 
 async function updateTaskById(id, body) {
-  const updatedTask = await knex("task")
-    .where("task_id", id)
-    .update({ title: body.title, done: body.done }, "*");
+  const updatedTask = tasks.update(
+    {
+      title: body.title,
+      done: body.done,
+    },
+    { where: { task_id: id }, returning: true }
+  );
 
-  return updatedTask.rows;
+  return updatedTask;
 }
 
 module.exports = {

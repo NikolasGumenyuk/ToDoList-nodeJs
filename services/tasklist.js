@@ -1,27 +1,27 @@
-const client = require("../db");
+const sequelize = require("../db");
+const tasklist = require("../models/tasklist");
 
 async function getAllTasks() {
-  const allLists = await client.query("select * from tasklist");
+  const allLists = tasklist.findAll({ raw: true });
 
-  return allLists.rows;
+  return allLists;
 }
 
 async function getListById(id) {
-  const [list] = await (await client.query(`select * from tasklist where tasklist_id=$1`, [id])).rows;
+  const [list] = tasklist.findOne({  where: { tasklist_id: id } });
 
   return list;
 }
 
 async function addNewList(title) {
-  const newList = await client.query(
-    `insert into tasklist (title) values ($1) RETURNING *`, [title]
-  );
 
-  return newList.rows[0];
+  const newList = tasklist.create({ title: title });
+
+  return newList;
 }
 
 async function deleteListById(id) {
-  return client.query(`DELETE FROM tasklist WHERE tasklist_id=$1`, [id])
+  return tasklist.destroy({ where: { tasklist_id: id } });
 }
 
 module.exports = { getAllTasks, addNewList, getListById, deleteListById };

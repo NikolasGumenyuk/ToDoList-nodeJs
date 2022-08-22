@@ -1,24 +1,14 @@
-// require('dotenv').config()
-// const { Client } = require('pg');
-// const client = new Client()
-const knex = require('knex')({
-  client: 'pg',
-  connection: {
-    host : '127.0.0.1',
-    port : 5432,
-    user : 'postgres',
-    password : 'adehas53',
-    database : 'todolist'
-  }
+const { Sequelize } = require("sequelize");
+
+const sequelize = new Sequelize("todolist", "postgres", "adehas53", {
+  dialect: "postgres",
 });
 
-knex.raw("SELECT 1").then(() => {
-  console.log("PostgreSQL connected");
-})
-.catch((e) => {
-  console.log("PostgreSQL not connected");
-  console.error(e);
-});
+try {
+  sequelize.authenticate();
+  console.log("Connected to database");
+} catch (e) {
+  console.log("Connection failed: ", e);
+}
 
-
-module.exports = knex;
+module.exports = sequelize;

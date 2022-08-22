@@ -9,7 +9,6 @@ const getAll = async (_, res) => {
 
 const getTasks = async (req, res) => {
   const allLists = await getTasksByList(req.params.id, req.query.all);
-  // console.log(!!req.query.all);
 
   res.send(allLists);
 };

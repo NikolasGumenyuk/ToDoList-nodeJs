@@ -28,12 +28,12 @@ const getCollection = async(_, res) => {
 }
  
 const create = async (req, res) => {
-  // const list = await getListById(req.body.list_id);
+  const list = await getListById(req.body.list_id);
 
-  // if (!list) {
-  //   res.status(400).send("Bad Request: List doesn't exist");
-  //   return;
-  // }
+  if (!list) {
+    res.status(400).send("Bad Request: List doesn't exist");
+    return;
+  }
 
   const newTask = await addNewTask(req.body);
 
