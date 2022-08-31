@@ -82,8 +82,9 @@ async function getCollectionToday() {
 function addNewTask(task) {
   const newTask = tasks.create({
     title: task.title,
+    description: task.description,
     done: task.done,
-    due_date: sequelize.fn("NOW"),
+    due_date: task.due_date ? task.due_date : undefined, 
     list_id: task.list_id,
   });
   return newTask;

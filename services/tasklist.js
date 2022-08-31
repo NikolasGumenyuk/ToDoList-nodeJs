@@ -8,7 +8,7 @@ async function getAllTasks() {
 }
 
 async function getListById(id) {
-  const [list] = tasklist.findOne({  where: { tasklist_id: id } });
+  const list = tasklist.findOne({  where: { tasklist_id: id } });
 
   return list;
 }

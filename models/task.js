@@ -12,6 +12,9 @@ const tasks = sequelize.define(
     title: {
       type: DataTypes.STRING,
     },
+    description: {
+      type: DataTypes.STRING
+    },
     done: {
       type: DataTypes.BOOLEAN,
     },
