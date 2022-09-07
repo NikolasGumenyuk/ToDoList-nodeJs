@@ -73,7 +73,8 @@ async function getCollectionToday() {
 
   const collection = await tasks.findAll({
     include: tasklist,
-    where: { due_date: { [Op.between]: [dayFrom, dayTo] } },
+    where: { due_date: { [Op.lte]: dayTo } },
+    order: [['due_date', 'ASC']]
   });
 
   return collection;
