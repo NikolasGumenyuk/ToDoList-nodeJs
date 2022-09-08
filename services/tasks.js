@@ -26,60 +26,24 @@ async function getTaskById(id) {
 }
 
 async function getDashboardToday() {
-  const [todayDay, todayMonth, todayYear] = getToday();
-  const dayFrom = new Date(
-    [todayYear, todayMonth, todayDay].join("-")
-  ).toJSON();
-  const dayTo = new Date(
-    [todayYear, todayMonth, todayDay + 1].join("-")
-  ).toJSON();
+  const todayTask = await await sequelize.query(
+    `SELECT COUNT(due_date) as today from task where due_date BETWEEN CURRENT_DATE AND CURRENT_TIMESTAMP`
+  );
 
-  const countedTodayTasks = await tasks.count({
-    where: {
-      done: false,
-      due_date: { [Op.between]: [dayFrom, dayTo] },
-    },
-  });
-
-  console.log(countedTodayTasks);
-
-  // const todayTaskList = await knex("task")
-  // .select(
-  // "tasklist.tasklist_id",
-  // "tasklist.title",
-  // knex.raw("COUNT(task.done=false)::INT AS undone")
-  // )
-  // .rightJoin("tasklist", function () {
-  // this.on("task.list_id", "=", "tasklist.tasklist_id");
-  // })
-  // .groupBy("tasklist.tasklist_id");
-  //
-
-//   const dashboard = await sequelize.query(
-//     "SELECT tasklists.title, tasklists.tasklist_id, COUNT(tasks.task_id) AS undone FROM tasklists LEFT JOIN tasks ON tasks.list_id = tasklists.id AND tasks.done = false GROUP BY tasklists.tasklists_id ORDER BY tasklists.tasklists_id;",
-//   );
-//   return dashboard;
-// }
-
-  const countedTasksByLists= tasklist.findAll({
-    attributes: ['tasklist.*', [sequelize.literal('count(tasks.task_id)::int'),'undone']],
-    include: {
-        model: tasks,
-        where : {done:false},
-        attributes:[],
-        required:false
-    },
-    group: ['tasklist.tasklist_id','tasklist.title'],
-    raw:true
-})
+  const todayTaskList = await await sequelize.query(
+    `SELECT tasklist.tasklist_id, tasklist.title, task.undone
+    FROM (SELECT task.list_id, COUNT(*) AS "undone" FROM task WHERE done=false group by list_id) as task
+    RIGHT JOIN tasklist
+    ON tasklist.tasklist_id = task.list_id`
+  );
 
   const [todayTaskRes, lists] = await Promise.all([
-    countedTodayTasks,
-    countedTasksByLists,
+    todayTask[0],
+    todayTaskList[0],
   ]);
 
   return {
-    ...todayTaskRes,
+    ...todayTaskRes[0],
     lists,
   };
 }
