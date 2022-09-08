@@ -34,24 +34,48 @@ async function getDashboardToday() {
     [todayYear, todayMonth, todayDay + 1].join("-")
   ).toJSON();
 
-  const todayTask = await knex("task")
-    .select(knex.raw("COUNT(due_date)::INT"))
-    .whereBetween("due_date", [dayFrom, dayTo]);
+  const countedTodayTasks = await tasks.count({
+    where: {
+      done: false,
+      due_date: { [Op.between]: [dayFrom, dayTo] },
+    },
+  });
 
-  const todayTaskList = await knex("task")
-    .select(
-      "tasklist.tasklist_id",
-      "tasklist.title",
-      knex.raw("COUNT(task.done=false)::INT AS undone")
-    )
-    .rightJoin("tasklist", function () {
-      this.on("task.list_id", "=", "tasklist.tasklist_id");
-    })
-    .groupBy("tasklist.tasklist_id");
+  console.log(countedTodayTasks);
+
+  // const todayTaskList = await knex("task")
+  // .select(
+  // "tasklist.tasklist_id",
+  // "tasklist.title",
+  // knex.raw("COUNT(task.done=false)::INT AS undone")
+  // )
+  // .rightJoin("tasklist", function () {
+  // this.on("task.list_id", "=", "tasklist.tasklist_id");
+  // })
+  // .groupBy("tasklist.tasklist_id");
+  //
+
+//   const dashboard = await sequelize.query(
+//     "SELECT tasklists.title, tasklists.tasklist_id, COUNT(tasks.task_id) AS undone FROM tasklists LEFT JOIN tasks ON tasks.list_id = tasklists.id AND tasks.done = false GROUP BY tasklists.tasklists_id ORDER BY tasklists.tasklists_id;",
+//   );
+//   return dashboard;
+// }
+
+  const countedTasksByLists= tasklist.findAll({
+    attributes: ['tasklist.*', [sequelize.literal('count(tasks.task_id)::int'),'undone']],
+    include: {
+        model: tasks,
+        where : {done:false},
+        attributes:[],
+        required:false
+    },
+    group: ['tasklist.tasklist_id','tasklist.title'],
+    raw:true
+})
 
   const [todayTaskRes, lists] = await Promise.all([
-    todayTask[0],
-    todayTaskList,
+    countedTodayTasks,
+    countedTasksByLists,
   ]);
 
   return {
@@ -74,7 +98,7 @@ async function getCollectionToday() {
   const collection = await tasks.findAll({
     include: tasklist,
     where: { due_date: { [Op.lte]: dayTo } },
-    order: [['due_date', 'ASC']]
+    order: [["due_date", "ASC"]],
   });
 
   return collection;
@@ -85,7 +109,7 @@ function addNewTask(task) {
     title: task.title,
     description: task.description,
     done: task.done,
-    due_date: task.due_date ? task.due_date : undefined, 
+    due_date: task.due_date ? task.due_date : undefined,
     list_id: task.list_id,
   });
   return newTask;
