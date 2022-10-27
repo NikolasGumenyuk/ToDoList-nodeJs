@@ -1,7 +1,14 @@
-require('dotenv').config()
-const { Client } = require('pg');
-const client = new Client()
+const { Sequelize } = require("sequelize");
 
-client.connect()
+const sequelize = new Sequelize("postgres", "postgres", "adehas53", {
+  dialect: "postgres",
+});
 
-module.exports = {query: (text, params) => client.query(text, params),}
+try {
+  sequelize.authenticate();
+  console.log("Connected to database");
+} catch (e) {
+  console.log("Connection failed: ", e);
+}
+
+module.exports = sequelize;
