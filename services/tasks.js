@@ -87,7 +87,9 @@ async function updateTaskById(id, body) {
   const updatedTask = tasks.update(
     {
       title: body.title,
+      description: body.description,
       done: body.done,
+      due_date: body.due_date,
     },
     { where: { task_id: id }, returning: true }
   );
